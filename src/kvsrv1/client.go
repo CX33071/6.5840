@@ -4,6 +4,7 @@ import (
 	"6.5840/kvsrv1/rpc"
 	"6.5840/kvtest1"
 	"6.5840/tester1"
+	"time"
 )
 
 
@@ -29,8 +30,21 @@ func MakeClerk(clnt *tester.Clnt, server string) kvtest.IKVClerk {
 // must match the declared types of the RPC handler function's
 // arguments. Additionally, reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) (string, rpc.Tversion, rpc.Err) {
-	// You will have to modify this function.
-	return "", 0, rpc.ErrNoKey
+	getargs:=rpc.GetArgs{Key: key}
+	for {//遇到其他错误的时候重试，所以if ok之后没有else，我们不返回，只循环重试
+		getreply:=rpc.GetReply{}//放进循环，不然会复用上一次留下的数据
+		ok:=ck.clnt.Call(ck.server,"KVServer.Get",&getargs,&getreply)
+	if ok {
+		if getreply.Err==rpc.ErrNoKey {
+			return "",0,rpc.ErrNoKey
+		}else if getreply.Err==rpc.OK{
+			return getreply.Value,getreply.Version,rpc.OK
+		}
+	}else{
+		time.Sleep(100 * time.Millisecond)
+			continue
+	}
+	}
 }
 
 // Put updates key with value only if the version in the
@@ -51,6 +65,21 @@ func (ck *Clerk) Get(key string) (string, rpc.Tversion, rpc.Err) {
 // must match the declared types of the RPC handler function's
 // arguments. Additionally, reply must be passed as a pointer.
 func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
-	// You will have to modify this function.
-	return rpc.ErrNoKey
+	putargs:=rpc.PutArgs{Key: key,Value: value,Version: version}
+	retried := false
+	for {
+		putreply:=rpc.PutReply{}
+		ok:=ck.clnt.Call(ck.server,"KVServer.Put",&putargs,&putreply)
+		if !ok {
+            retried = true
+            time.Sleep(100 * time.Millisecond)
+            continue
+        }
+
+        if retried && putreply.Err == rpc.ErrVersion {
+            return rpc.ErrMaybe
+        }
+
+        return putreply.Err
+	}
 }
