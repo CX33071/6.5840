@@ -28,9 +28,8 @@ func (lk *Lock) Acquire() {
 		value,version,err:=lk.ck.Get(lk.lockname)
 	if err== rpc.ErrNoKey{
 		err1:=lk.ck.Put(lk.lockname,"",0)
-		if err1==rpc.OK{
-		}else{
-			time.Sleep(10 * time.Millisecond)
+		if err1!=rpc.OK{
+			time.Sleep(10*time.Millisecond)
 		}
 		continue
 	}else if err==rpc.OK{
@@ -45,6 +44,7 @@ func (lk *Lock) Acquire() {
 			if err2==rpc.OK{
 				return
 			}else{
+				time.Sleep(10*time.Millisecond)
 				continue
 			}
 		}
@@ -70,6 +70,7 @@ func (lk *Lock) Release() {
 			return
 		}else{
 			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 		}else{
 			return
